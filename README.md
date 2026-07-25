@@ -1,0 +1,1 @@
+# DocScribe-AI-Clinical-Documentation-Platform
