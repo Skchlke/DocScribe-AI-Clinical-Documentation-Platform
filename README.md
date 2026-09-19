@@ -18,18 +18,22 @@ PATIENT
 
 ## Getting Started (Local Development)
 
-* **React Frontend**: http://localhost:5173/
-* **FastAPI Swagger Docs**: http://127.0.0.1:8000/docs
-* **FastAPI Backend Base**: http://127.0.0.1:8000
+- **React Frontend**: http://localhost:5173/
+- **FastAPI Swagger Docs**: http://127.0.0.1:8000/docs
+- **FastAPI Backend Base**: http://127.0.0.1:8000
 
 ### Restart Backend
+
 From `E:\DocScribe\backend`:
+
 ```powershell
 .\.venv\Scripts\python -m uvicorn app.main:app --reload
 ```
 
 ### Restart Frontend
+
 From `E:\DocScribe\frontend`:
+
 ```bash
 npm run dev
 ```
@@ -67,14 +71,16 @@ E:\DocScribe/
 ## Tech Stack & Features
 
 ### Backend (FastAPI & SQLite)
-* **FastAPI** REST API on `http://127.0.0.1:8000`, all routes under `/api`.
-* **SQLAlchemy ORM** over a local `docscribe.db` SQLite file.
-* File uploads (profile photos, appointment documents) stored under `backend/uploads/` and served via `/uploads`.
-* Key endpoints: patients (CRUD + search), appointments (CRUD, nested prescriptions), document upload/delete, upcoming follow-ups, dashboard stats.
+
+- **FastAPI** REST API on `http://127.0.0.1:8000`, all routes under `/api`.
+- **SQLAlchemy ORM** over a local `docscribe.db` SQLite file.
+- File uploads (profile photos, appointment documents) stored under `backend/uploads/` and served via `/uploads`.
+- Key endpoints: patients (CRUD + search), appointments (CRUD, nested prescriptions), document upload/delete, upcoming follow-ups, dashboard stats.
 
 ### Frontend (React + Tailwind v3)
-* **Dashboard** — patient/appointment stats, upcoming follow-up alerts, recent appointments.
-* **Patients** — searchable directory, add/edit patient (personal info + medical background as tag lists), profile photo upload.
-* **Patient Detail** — full demographic + medical background summary and complete appointment history.
-* **Appointments** — structured forms for clinical assessment, vital signs, a dynamic prescription table, document uploads by category, and follow-up scheduling. Printable appointment view.
-* **All Appointments** — cross-patient searchable/filterable table.
+
+- **Dashboard** — patient/appointment stats, upcoming follow-up alerts, recent appointments.
+- **Patients** — searchable directory, add/edit patient (personal info + medical background as tag lists), profile photo upload.
+- **Patient Detail** — full demographic + medical background summary and complete appointment history.
+- **Appointments** — structured forms for clinical assessment, vital signs, a dynamic prescription table, document uploads by category, and follow-up scheduling. Printable appointment view.
+- **All Appointments** — cross-patient searchable/filterable table.
