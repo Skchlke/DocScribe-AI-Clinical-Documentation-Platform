@@ -1,0 +1,90 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    @apply bg-brand-bg text-brand-charcoal antialiased min-h-screen selection:bg-brand-forest selection:text-white;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', sans-serif;
+    @apply text-brand-charcoal;
+  }
+}
+
+/* ─── Scrollbar ──────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: rgba(247, 245, 240, 0.8); }
+::-webkit-scrollbar-thumb {
+  background: rgba(98, 140, 123, 0.35);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(98, 140, 123, 0.6); }
+
+/* ─── Fade / Slide animations ───────────────── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1;   transform: scale(1);    }
+  50%       { opacity: 0.5; transform: scale(0.98); }
+}
+@keyframes glow-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(98,140,123,0); }
+  50%       { box-shadow: 0 0 0 4px rgba(98,140,123,0.18); }
+}
+@keyframes status-ping {
+  0%   { transform: scale(1);   opacity: 1; }
+  75%, 100% { transform: scale(2); opacity: 0; }
+}
+
+.animate-fade-in   { animation: fade-in  0.3s ease both; }
+.animate-slide-up  { animation: slide-up 0.35s ease both; }
+.animate-pulse-slow { animation: pulse-slow 3s cubic-bezier(0.4,0,0.6,1) infinite; }
+.animate-glow-ring { animation: glow-ring 2.4s ease-in-out infinite; }
+.animate-status-ping { animation: status-ping 1.4s cubic-bezier(0,0,0.2,1) infinite; }
+
+/* ─── Focus ring upgrade ─────────────────────── */
+input:focus, textarea:focus, select:focus {
+  box-shadow: 0 0 0 3px rgba(98,140,123,0.15);
+}
+
+/* ─── Nav button active left accent ─────────── */
+.nav-active {
+  position: relative;
+}
+.nav-active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 20%; bottom: 20%;
+  width: 3px;
+  background: #628c7b;
+  border-radius: 0 3px 3px 0;
+}
+
+/* ─── Table row hover ────────────────────────── */
+tbody tr { transition: background 0.15s ease; }
+
+/* ─── Glass card ─────────────────────────────── */
+.glass-card {
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ─── Custom transitions ─────────────────────── */
+.transition-all-300 { transition: all 0.3s cubic-bezier(0.4,0,0.2,1); }
+
+/* ─── Print styles ───────────────────────────── */
+@media print {
+  aside, header nav, .no-print { display: none !important; }
+}
