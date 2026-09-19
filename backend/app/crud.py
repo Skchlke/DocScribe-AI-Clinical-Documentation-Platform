@@ -38,8 +38,11 @@ def _format_prescription(item: models.PrescriptionItem) -> dict:
     return {
         "id": item.id,
         "medicine": item.medicine,
+        "brand_name": item.brand_name or "",
+        "form": item.form or "",
         "dosage": item.dosage or "",
         "frequency": item.frequency or "",
+        "timing": item.timing or "",
         "duration": item.duration or "",
         "instructions": item.instructions or "",
     }
@@ -71,6 +74,8 @@ def _format_appointment(appt: models.Appointment) -> dict:
         "vital_signs": _loads_dict(appt.vital_signs),
         "examination_findings": appt.examination_findings or "",
         "diagnosis": appt.diagnosis or "",
+        "advice": appt.advice or "",
+        "investigations_ordered": _loads_list(appt.investigations_ordered),
         "follow_up_date": appt.follow_up_date,
         "follow_up_instructions": appt.follow_up_instructions or "",
         "doctor_notes": appt.doctor_notes or "",
@@ -227,8 +232,11 @@ def _apply_prescriptions(db: Session, appointment: models.Appointment, prescript
         appointment.prescriptions.append(
             models.PrescriptionItem(
                 medicine=item.medicine,
+                brand_name=item.brand_name,
+                form=item.form,
                 dosage=item.dosage,
                 frequency=item.frequency,
+                timing=item.timing,
                 duration=item.duration,
                 instructions=item.instructions,
             )
@@ -252,6 +260,8 @@ def create_appointment(db: Session, patient_id: int, appt_in: schemas.Appointmen
         vital_signs=json.dumps(appt_in.vital_signs or {}),
         examination_findings=appt_in.examination_findings,
         diagnosis=appt_in.diagnosis,
+        advice=appt_in.advice,
+        investigations_ordered=_dumps(appt_in.investigations_ordered),
         follow_up_date=appt_in.follow_up_date,
         follow_up_instructions=appt_in.follow_up_instructions,
         doctor_notes=appt_in.doctor_notes,
@@ -304,6 +314,8 @@ def update_appointment(db: Session, appointment_id: int, appt_in: schemas.Appoin
     db_appt.vital_signs = json.dumps(appt_in.vital_signs or {})
     db_appt.examination_findings = appt_in.examination_findings
     db_appt.diagnosis = appt_in.diagnosis
+    db_appt.advice = appt_in.advice
+    db_appt.investigations_ordered = _dumps(appt_in.investigations_ordered)
     db_appt.follow_up_date = appt_in.follow_up_date
     db_appt.follow_up_instructions = appt_in.follow_up_instructions
     db_appt.doctor_notes = appt_in.doctor_notes
@@ -435,3 +447,49 @@ def delete_document(db: Session, document_id: int) -> Optional[str]:
     db.delete(doc)
     db.commit()
     return file_path
+
+
+# ─── Clinic Settings (singleton) ───────────────────────────────────
+
+def _format_clinic_settings(settings: models.ClinicSettings) -> dict:
+    return {
+        "id": settings.id,
+        "clinic_name": settings.clinic_name or "",
+        "clinic_address": settings.clinic_address or "",
+        "clinic_phone": settings.clinic_phone or "",
+        "clinic_email": settings.clinic_email or "",
+        "doctor_name": settings.doctor_name or "",
+        "doctor_qualifications": settings.doctor_qualifications or "",
+        "doctor_registration_number": settings.doctor_registration_number or "",
+        "updated_at": settings.updated_at,
+    }
+
+
+def get_clinic_settings(db: Session) -> dict:
+    settings = db.query(models.ClinicSettings).filter(models.ClinicSettings.id == 1).first()
+    if not settings:
+        settings = models.ClinicSettings(id=1)
+        db.add(settings)
+        db.commit()
+        db.refresh(settings)
+    return _format_clinic_settings(settings)
+
+
+def update_clinic_settings(db: Session, settings_in: schemas.ClinicSettingsUpdate) -> dict:
+    settings = db.query(models.ClinicSettings).filter(models.ClinicSettings.id == 1).first()
+    if not settings:
+        settings = models.ClinicSettings(id=1)
+        db.add(settings)
+
+    settings.clinic_name = settings_in.clinic_name
+    settings.clinic_address = settings_in.clinic_address
+    settings.clinic_phone = settings_in.clinic_phone
+    settings.clinic_email = settings_in.clinic_email
+    settings.doctor_name = settings_in.doctor_name
+    settings.doctor_qualifications = settings_in.doctor_qualifications
+    settings.doctor_registration_number = settings_in.doctor_registration_number
+    settings.updated_at = datetime.datetime.utcnow()
+
+    db.commit()
+    db.refresh(settings)
+    return _format_clinic_settings(settings)

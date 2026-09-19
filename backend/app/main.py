@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from .database import engine, Base, get_db, SessionLocal
+from .database import engine, Base, get_db, SessionLocal, SQLALCHEMY_DATABASE_URL
 from . import schemas, crud, models
 
 logging.basicConfig(level=logging.INFO)
@@ -20,8 +20,48 @@ UPLOAD_ROOT = os.environ.get("UPLOAD_DIR", "uploads")
 os.makedirs(os.path.join(UPLOAD_ROOT, "patients"), exist_ok=True)
 os.makedirs(os.path.join(UPLOAD_ROOT, "appointments"), exist_ok=True)
 
-# Initialize database tables (fresh schema — see database.py: docscribe.db)
+# Initialize database tables — creates any new tables (e.g. clinic_settings), but
+# does NOT add columns to tables that already exist, hence the migration below.
 Base.metadata.create_all(bind=engine)
+
+
+def _run_column_migrations():
+    """Adds newly-introduced nullable columns to pre-existing SQLite tables without
+    touching existing rows. New tables are already handled by create_all above."""
+    if not SQLALCHEMY_DATABASE_URL.startswith("sqlite:///"):
+        return
+    import sqlite3
+    db_path = SQLALCHEMY_DATABASE_URL.replace("sqlite:///", "", 1)
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    def ensure_column(table: str, column: str, coltype: str):
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
+        )
+        if not cursor.fetchone():
+            return  # table doesn't exist yet — create_all already made it with the new schema
+        cursor.execute(f"PRAGMA table_info({table})")
+        existing_columns = [row[1] for row in cursor.fetchall()]
+        if column not in existing_columns:
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
+            logger.info(f"Migration: added {table}.{column}")
+
+    try:
+        ensure_column("appointments", "advice", "TEXT")
+        ensure_column("appointments", "investigations_ordered", "TEXT")
+        ensure_column("prescription_items", "brand_name", "TEXT")
+        ensure_column("prescription_items", "form", "TEXT")
+        ensure_column("prescription_items", "timing", "TEXT")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+try:
+    _run_column_migrations()
+except Exception as e:
+    logger.error(f"Error running column migrations: {e}")
 
 
 def _seed_demo_data():
@@ -375,3 +415,15 @@ def delete_document(document_id: int, db: Session = Depends(get_db)):
 @app.get("/api/dashboard/stats", response_model=schemas.DashboardStats)
 def dashboard_stats(db: Session = Depends(get_db)):
     return crud.get_dashboard_stats(db)
+
+
+# ─── Clinic Settings ────────────────────────────────────────────────
+
+@app.get("/api/settings", response_model=schemas.ClinicSettingsResponse)
+def get_settings(db: Session = Depends(get_db)):
+    return crud.get_clinic_settings(db)
+
+
+@app.put("/api/settings", response_model=schemas.ClinicSettingsResponse)
+def update_settings(settings: schemas.ClinicSettingsUpdate, db: Session = Depends(get_db)):
+    return crud.update_clinic_settings(db, settings)

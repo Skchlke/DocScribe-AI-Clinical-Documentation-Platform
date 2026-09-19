@@ -92,3 +92,10 @@ export const deleteDocument = (id) =>
 // ─── Dashboard ──────────────────────────────────────────────────
 
 export const getDashboardStats = () => request('/api/dashboard/stats');
+
+// ─── Clinic Settings ────────────────────────────────────────────
+
+export const getClinicSettings = () => request('/api/settings');
+
+export const updateClinicSettings = (payload) =>
+  request('/api/settings', { method: 'PUT', body: JSON.stringify(payload) });

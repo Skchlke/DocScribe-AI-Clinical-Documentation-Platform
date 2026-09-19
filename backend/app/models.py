@@ -59,6 +59,10 @@ class Appointment(Base):
     examination_findings = Column(Text, nullable=True)
     diagnosis = Column(Text, nullable=True)
 
+    # Treatment plan (beyond the prescription table)
+    advice = Column(Text, nullable=True)
+    investigations_ordered = Column(Text, nullable=True)  # JSON list
+
     # Follow-up
     follow_up_date = Column(Date, nullable=True, index=True)
     follow_up_instructions = Column(Text, nullable=True)
@@ -82,8 +86,11 @@ class PrescriptionItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     appointment_id = Column(Integer, ForeignKey("appointments.appointment_id"), nullable=False, index=True)
     medicine = Column(String, nullable=False)
+    brand_name = Column(String, nullable=True)
+    form = Column(String, nullable=True)  # Tablet | Capsule | Syrup | Injection | Drops | Ointment | Other
     dosage = Column(String, nullable=True)
     frequency = Column(String, nullable=True)
+    timing = Column(String, nullable=True)  # Before Food | After Food | With Food | Anytime
     duration = Column(String, nullable=True)
     instructions = Column(String, nullable=True)
 
@@ -104,3 +111,19 @@ class AppointmentDocument(Base):
     upload_date = Column(DateTime, default=datetime.datetime.utcnow)
 
     appointment = relationship("Appointment", back_populates="documents")
+
+
+class ClinicSettings(Base):
+    """Singleton row (id is always 1) holding the clinic's identity and the doctor's
+    legal credentials, used to head every printed prescription."""
+    __tablename__ = "clinic_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    clinic_name = Column(String, nullable=True)
+    clinic_address = Column(Text, nullable=True)
+    clinic_phone = Column(String, nullable=True)
+    clinic_email = Column(String, nullable=True)
+    doctor_name = Column(String, nullable=True)
+    doctor_qualifications = Column(String, nullable=True)
+    doctor_registration_number = Column(String, nullable=True)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)

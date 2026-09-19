@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText, Trash2 } from 'lucide-react';
 import * as api from '../api';
 import { toDateTimeLocalValue } from '../utils/formatDate';
@@ -17,6 +17,7 @@ function buildForm(appointment) {
       appointment_datetime: toDateTimeLocalValue(new Date()),
       doctor: '', visit_type: 'New Consultation', status: 'Scheduled', reason_for_visit: '',
       chief_complaint: '', symptoms: [], vital_signs: {}, examination_findings: '', diagnosis: '',
+      advice: '', investigations_ordered: [],
       follow_up_date: '', follow_up_instructions: '', doctor_notes: '', prescriptions: [],
     };
   }
@@ -25,8 +26,8 @@ function buildForm(appointment) {
     appointment_datetime: toDateTimeLocalValue(appointment.appointment_datetime),
     follow_up_date: appointment.follow_up_date || '',
     prescriptions: appointment.prescriptions.map(
-      ({ medicine, dosage, frequency, duration, instructions }) =>
-        ({ medicine, dosage, frequency, duration, instructions })
+      ({ medicine, brand_name, form, dosage, frequency, timing, duration, instructions }) =>
+        ({ medicine, brand_name, form, dosage, frequency, timing, duration, instructions })
     ),
   };
 }
@@ -36,6 +37,23 @@ export default function AppointmentForm({ patientId, appointment, onSaved, onCan
   const [form, setForm] = useState(() => buildForm(appointment));
   const [documents, setDocuments] = useState(appointment?.documents || []);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (isEdit) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const settings = await api.getClinicSettings();
+        if (!cancelled && settings.doctor_name) {
+          setForm((prev) => (prev.doctor ? prev : { ...prev, doctor: settings.doctor_name }));
+        }
+      } catch {
+        // Settings are optional here — silently skip the default if unavailable.
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const set = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
 
@@ -115,6 +133,16 @@ export default function AppointmentForm({ patientId, appointment, onSaved, onCan
       <div>
         <h4 className="text-xs font-extrabold uppercase tracking-wide text-brand-sage mb-3">Prescription</h4>
         <PrescriptionEditor items={form.prescriptions} onChange={(v) => set('prescriptions', v)} />
+      </div>
+
+      <div>
+        <h4 className="text-xs font-extrabold uppercase tracking-wide text-brand-sage mb-3">Advice &amp; Next Steps</h4>
+        <div className="space-y-3">
+          <Field label="Advice & Instructions" value={form.advice} onChange={(v) => set('advice', v)}
+            placeholder="e.g. Drink plenty of fluids, bed rest for 2 days" textarea />
+          <TagListEditor label="Investigations Ordered" values={form.investigations_ordered}
+            onChange={(v) => set('investigations_ordered', v)} placeholder="e.g. CBC, Chest X-ray" />
+        </div>
       </div>
 
       <div>

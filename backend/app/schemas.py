@@ -7,8 +7,11 @@ from datetime import datetime, date
 
 class PrescriptionItemCreate(BaseModel):
     medicine: str
+    brand_name: Optional[str] = ""
+    form: Optional[str] = ""
     dosage: Optional[str] = ""
     frequency: Optional[str] = ""
+    timing: Optional[str] = ""
     duration: Optional[str] = ""
     instructions: Optional[str] = ""
 
@@ -50,6 +53,9 @@ class AppointmentCreate(BaseModel):
     examination_findings: Optional[str] = ""
     diagnosis: Optional[str] = ""
 
+    advice: Optional[str] = ""
+    investigations_ordered: Optional[List[str]] = []
+
     follow_up_date: Optional[date] = None
     follow_up_instructions: Optional[str] = ""
     doctor_notes: Optional[str] = ""
@@ -75,6 +81,9 @@ class AppointmentResponse(BaseModel):
     vital_signs: Dict[str, Any] = {}
     examination_findings: Optional[str] = ""
     diagnosis: Optional[str] = ""
+
+    advice: Optional[str] = ""
+    investigations_ordered: List[str] = []
 
     follow_up_date: Optional[date] = None
     follow_up_instructions: Optional[str] = ""
@@ -158,6 +167,26 @@ class PatientResponse(BaseModel):
 
 class PatientDetailResponse(PatientResponse):
     appointments: List[AppointmentResponse] = []
+
+
+# ─── Clinic Settings ────────────────────────────────────────────────
+
+class ClinicSettingsUpdate(BaseModel):
+    clinic_name: Optional[str] = ""
+    clinic_address: Optional[str] = ""
+    clinic_phone: Optional[str] = ""
+    clinic_email: Optional[str] = ""
+    doctor_name: Optional[str] = ""
+    doctor_qualifications: Optional[str] = ""
+    doctor_registration_number: Optional[str] = ""
+
+
+class ClinicSettingsResponse(ClinicSettingsUpdate):
+    id: int
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 # ─── Misc ─────────────────────────────────────────────────────────

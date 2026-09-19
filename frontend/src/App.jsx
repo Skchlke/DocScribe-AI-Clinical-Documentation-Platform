@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { LayoutDashboard, Users, CalendarClock, Stethoscope, CheckCircle, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, Users, CalendarClock, Settings as SettingsIcon, Stethoscope, CheckCircle, AlertCircle } from 'lucide-react';
 import * as api from './api';
 import { useToast } from './hooks/useToast';
 
@@ -8,6 +8,7 @@ import PatientList from './components/PatientList';
 import PatientDetail from './components/PatientDetail';
 import AppointmentDetail from './components/AppointmentDetail';
 import AllAppointments from './components/AllAppointments';
+import ClinicSettings from './components/ClinicSettings';
 import PatientForm from './components/PatientForm';
 import AppointmentForm from './components/AppointmentForm';
 import Modal from './components/shared/Modal';
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'patients', label: 'Patients', icon: Users },
   { key: 'appointments', label: 'All Appointments', icon: CalendarClock },
+  { key: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
 
 function App() {
@@ -116,6 +118,10 @@ function App() {
 
     if (activeSection === 'appointments') {
       return <AllAppointments onSelectAppointment={handleSelectAppointment} showError={showError} />;
+    }
+
+    if (activeSection === 'settings') {
+      return <ClinicSettings showError={showError} showSuccess={showSuccess} />;
     }
 
     // activeSection === 'patients'

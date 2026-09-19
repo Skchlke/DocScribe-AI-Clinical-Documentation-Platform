@@ -2,11 +2,18 @@ import { useEffect, useState } from 'react';
 import { ChevronLeft, Edit3, Trash2, Printer, FileText, User } from 'lucide-react';
 import * as api from '../api';
 import { formatDate, formatDateTime, calculateAge } from '../utils/formatDate';
+import { calculateBMI } from '../utils/vitals';
 import StatusBadge from './shared/StatusBadge';
+
+const VITAL_LABELS = {
+  bp: 'BP', temperature: 'Temp', pulse: 'Pulse', resp_rate: 'Resp. Rate',
+  spo2: 'SpO2', weight: 'Weight', height: 'Height',
+};
 
 export default function AppointmentDetail({ appointmentId, onBack, onEdit, onDeleted, showError, showSuccess }) {
   const [appointment, setAppointment] = useState(null);
   const [patient, setPatient] = useState(null);
+  const [clinic, setClinic] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,10 +22,14 @@ export default function AppointmentDetail({ appointmentId, onBack, onEdit, onDel
       setLoading(true);
       try {
         const appt = await api.getAppointment(appointmentId);
-        const pat = await api.getPatient(appt.patient_id);
+        const [pat, settings] = await Promise.all([
+          api.getPatient(appt.patient_id),
+          api.getClinicSettings().catch(() => null),
+        ]);
         if (!cancelled) {
           setAppointment(appt);
           setPatient(pat);
+          setClinic(settings);
         }
       } catch (e) {
         if (!cancelled) showError(e.message || 'Failed to load appointment.');
@@ -45,17 +56,18 @@ export default function AppointmentDetail({ appointmentId, onBack, onEdit, onDel
 
   const age = calculateAge(patient.date_of_birth);
   const vitalsEntries = Object.entries(appointment.vital_signs || {}).filter(([, v]) => v);
+  const bmi = calculateBMI(appointment.vital_signs?.weight, appointment.vital_signs?.height);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between no-print">
+    <div className="animate-fade-in">
+      <div className="flex items-center justify-between no-print mb-6">
         <button onClick={onBack} className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-brand-forest">
           <ChevronLeft className="w-4 h-4" /> Back
         </button>
         <div className="flex gap-2">
           <button onClick={() => window.print()}
             className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50">
-            <Printer className="w-3.5 h-3.5" /> Print
+            <Printer className="w-3.5 h-3.5" /> Print Prescription
           </button>
           <button onClick={() => onEdit(appointment)}
             className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50">
@@ -68,115 +80,234 @@ export default function AppointmentDetail({ appointmentId, onBack, onEdit, onDel
         </div>
       </div>
 
-      <div className="bg-white border border-brand-sage/20 rounded-2xl p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-full bg-brand-sageLight flex items-center justify-center overflow-hidden shrink-0">
-              {patient.profile_photo_path ? (
-                <img src={`${api.API_BASE_URL}${patient.profile_photo_path}`} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <User className="w-5 h-5 text-brand-forest" />
-              )}
+      {/* ─── On-screen view (hidden when printing) ─────────────────── */}
+      <div className="print:hidden space-y-6">
+        <div className="bg-white border border-brand-sage/20 rounded-2xl p-6 shadow-sm">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-full bg-brand-sageLight flex items-center justify-center overflow-hidden shrink-0">
+                {patient.profile_photo_path ? (
+                  <img src={`${api.API_BASE_URL}${patient.profile_photo_path}`} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-5 h-5 text-brand-forest" />
+                )}
+              </div>
+              <div>
+                <p className="font-bold text-brand-charcoal">{patient.first_name} {patient.last_name}</p>
+                <p className="text-xs text-slate-400 font-semibold">
+                  {patient.unique_patient_number}{age !== null ? ` · ${age} yrs` : ''}{patient.gender ? ` · ${patient.gender}` : ''}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="font-bold text-brand-charcoal">{patient.first_name} {patient.last_name}</p>
-              <p className="text-xs text-slate-400 font-semibold">
-                {patient.unique_patient_number}{age !== null ? ` · ${age} yrs` : ''}{patient.gender ? ` · ${patient.gender}` : ''}
-              </p>
+            <div className="text-right">
+              <StatusBadge status={appointment.status} />
+              <p className="text-xs text-slate-500 mt-1.5">{formatDateTime(appointment.appointment_datetime)}</p>
             </div>
           </div>
-          <div className="text-right">
-            <StatusBadge status={appointment.status} />
-            <p className="text-xs text-slate-500 mt-1.5">{formatDateTime(appointment.appointment_datetime)}</p>
+
+          <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+            <Info label="Doctor" value={appointment.doctor} />
+            <Info label="Visit Type" value={appointment.visit_type} />
+            <Info label="Reason for Visit" value={appointment.reason_for_visit} />
           </div>
         </div>
 
-        <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-          <Info label="Doctor" value={appointment.doctor} />
-          <Info label="Visit Type" value={appointment.visit_type} />
-          <Info label="Reason for Visit" value={appointment.reason_for_visit} />
-        </div>
+        <Section title="Clinical Assessment">
+          <Info label="Chief Complaint" value={appointment.chief_complaint} block />
+          {appointment.symptoms.length > 0 && (
+            <div className="mb-2">
+              <p className="text-xs font-bold text-slate-500 mb-1">Symptoms</p>
+              <div className="flex flex-wrap gap-1.5">
+                {appointment.symptoms.map((s) => (
+                  <span key={s} className="text-xs bg-brand-sageLight text-brand-forest px-2.5 py-0.5 rounded-full font-semibold">{s}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {(vitalsEntries.length > 0 || bmi) && (
+            <div className="mb-2">
+              <p className="text-xs font-bold text-slate-500 mb-1">Vital Signs</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {vitalsEntries.map(([k, v]) => (
+                  <div key={k} className="text-xs bg-brand-bg/60 rounded-lg px-2.5 py-1.5">
+                    <span className="text-slate-400 uppercase">{VITAL_LABELS[k] || k}: </span>
+                    <span className="font-bold text-brand-charcoal">{v}</span>
+                  </div>
+                ))}
+                {bmi && (
+                  <div className="text-xs bg-brand-bg/60 rounded-lg px-2.5 py-1.5">
+                    <span className="text-slate-400 uppercase">BMI: </span>
+                    <span className="font-bold text-brand-charcoal">{bmi}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          <Info label="Examination Findings" value={appointment.examination_findings} block />
+          <Info label="Diagnosis" value={appointment.diagnosis} block />
+        </Section>
+
+        {appointment.prescriptions.length > 0 && (
+          <Section title="Prescription">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-slate-400 font-bold border-b border-slate-100">
+                  <th className="pb-2 pr-2">Medicine</th>
+                  <th className="pb-2 pr-2">Brand</th>
+                  <th className="pb-2 pr-2">Form</th>
+                  <th className="pb-2 pr-2">Dosage</th>
+                  <th className="pb-2 pr-2">Frequency</th>
+                  <th className="pb-2 pr-2">Timing</th>
+                  <th className="pb-2 pr-2">Duration</th>
+                  <th className="pb-2">Instructions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {appointment.prescriptions.map((p) => (
+                  <tr key={p.id} className="border-b border-slate-50 last:border-0">
+                    <td className="py-1.5 pr-2 font-semibold text-brand-charcoal">{p.medicine}</td>
+                    <td className="py-1.5 pr-2 text-slate-600">{p.brand_name}</td>
+                    <td className="py-1.5 pr-2 text-slate-600">{p.form}</td>
+                    <td className="py-1.5 pr-2 text-slate-600">{p.dosage}</td>
+                    <td className="py-1.5 pr-2 text-slate-600">{p.frequency}</td>
+                    <td className="py-1.5 pr-2 text-slate-600">{p.timing}</td>
+                    <td className="py-1.5 pr-2 text-slate-600">{p.duration}</td>
+                    <td className="py-1.5 text-slate-600">{p.instructions}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Section>
+        )}
+
+        {(appointment.advice || appointment.investigations_ordered.length > 0) && (
+          <Section title="Advice & Next Steps">
+            <Info label="Advice & Instructions" value={appointment.advice} block />
+            {appointment.investigations_ordered.length > 0 && (
+              <div>
+                <p className="text-xs font-bold text-slate-500 mb-1">Investigations Ordered</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {appointment.investigations_ordered.map((inv) => (
+                    <span key={inv} className="text-xs bg-brand-terracottaLight text-brand-terracotta px-2.5 py-0.5 rounded-full font-semibold">{inv}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Section>
+        )}
+
+        {appointment.documents.length > 0 && (
+          <Section title="Documents">
+            <ul className="space-y-1.5">
+              {appointment.documents.map((d) => (
+                <li key={d.id}>
+                  <a href={`${api.API_BASE_URL}${d.file_path}`} target="_blank" rel="noreferrer"
+                     className="flex items-center gap-2 text-sm text-brand-forest hover:underline">
+                    <FileText className="w-4 h-4" /> {d.original_filename}
+                    <span className="text-slate-400 text-xs">({d.category})</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+
+        {(appointment.follow_up_date || appointment.follow_up_instructions || appointment.doctor_notes) && (
+          <Section title="Follow-up">
+            {appointment.follow_up_date && <Info label="Follow-up Date" value={formatDate(appointment.follow_up_date)} />}
+            <Info label="Instructions" value={appointment.follow_up_instructions} block />
+            <Info label="Doctor Notes" value={appointment.doctor_notes} block />
+          </Section>
+        )}
       </div>
 
-      <Section title="Clinical Assessment">
-        <Info label="Chief Complaint" value={appointment.chief_complaint} block />
-        {appointment.symptoms.length > 0 && (
-          <div className="mb-2">
-            <p className="text-xs font-bold text-slate-500 mb-1">Symptoms</p>
-            <div className="flex flex-wrap gap-1.5">
-              {appointment.symptoms.map((s) => (
-                <span key={s} className="text-xs bg-brand-sageLight text-brand-forest px-2.5 py-0.5 rounded-full font-semibold">{s}</span>
-              ))}
-            </div>
+      {/* ─── Print-only formatted prescription ──────────────────────── */}
+      <div className="hidden print:block text-black text-sm">
+        <div className="flex justify-between items-start border-b-2 border-black pb-3 mb-3">
+          <div>
+            <h1 className="text-xl font-bold">{clinic?.clinic_name || 'Clinic Name'}</h1>
+            {clinic?.clinic_address && <p>{clinic.clinic_address}</p>}
+            <p>
+              {[clinic?.clinic_phone, clinic?.clinic_email].filter(Boolean).join(' · ')}
+            </p>
           </div>
-        )}
-        {vitalsEntries.length > 0 && (
-          <div className="mb-2">
-            <p className="text-xs font-bold text-slate-500 mb-1">Vital Signs</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {vitalsEntries.map(([k, v]) => (
-                <div key={k} className="text-xs bg-brand-bg/60 rounded-lg px-2.5 py-1.5">
-                  <span className="text-slate-400 uppercase">{k.replace('_', ' ')}: </span>
-                  <span className="font-bold text-brand-charcoal">{v}</span>
-                </div>
-              ))}
-            </div>
+          <div className="text-right">
+            <p className="font-bold">{clinic?.doctor_name || 'Doctor Name'}</p>
+            {clinic?.doctor_qualifications && <p>{clinic.doctor_qualifications}</p>}
+            {clinic?.doctor_registration_number && <p>Reg. No: {clinic.doctor_registration_number}</p>}
           </div>
-        )}
-        <Info label="Examination Findings" value={appointment.examination_findings} block />
-        <Info label="Diagnosis" value={appointment.diagnosis} block />
-      </Section>
+        </div>
 
-      {appointment.prescriptions.length > 0 && (
-        <Section title="Prescription">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-slate-400 font-bold border-b border-slate-100">
-                <th className="pb-2 pr-2">Medicine</th>
-                <th className="pb-2 pr-2">Dosage</th>
-                <th className="pb-2 pr-2">Frequency</th>
-                <th className="pb-2 pr-2">Duration</th>
-                <th className="pb-2">Instructions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {appointment.prescriptions.map((p) => (
-                <tr key={p.id} className="border-b border-slate-50 last:border-0">
-                  <td className="py-1.5 pr-2 font-semibold text-brand-charcoal">{p.medicine}</td>
-                  <td className="py-1.5 pr-2 text-slate-600">{p.dosage}</td>
-                  <td className="py-1.5 pr-2 text-slate-600">{p.frequency}</td>
-                  <td className="py-1.5 pr-2 text-slate-600">{p.duration}</td>
-                  <td className="py-1.5 text-slate-600">{p.instructions}</td>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 mb-3 pb-3 border-b border-black">
+          <p><span className="font-bold">Patient:</span> {patient.first_name} {patient.last_name}</p>
+          <p><span className="font-bold">Age / Sex:</span> {age !== null ? `${age} yrs` : '—'} / {patient.gender || '—'}</p>
+          <p><span className="font-bold">Patient ID:</span> {patient.unique_patient_number}</p>
+          <p><span className="font-bold">Visit:</span> {formatDateTime(appointment.appointment_datetime)}{appointment.visit_type ? ` (${appointment.visit_type})` : ''}</p>
+        </div>
+
+        {appointment.chief_complaint && <p className="mb-1"><span className="font-bold">Chief Complaint:</span> {appointment.chief_complaint}</p>}
+
+        {(vitalsEntries.length > 0 || bmi) && (
+          <p className="mb-1">
+            <span className="font-bold">Vitals:</span>{' '}
+            {vitalsEntries.map(([k, v]) => `${VITAL_LABELS[k] || k}: ${v}`).join('  ·  ')}
+            {bmi ? `${vitalsEntries.length ? '  ·  ' : ''}BMI: ${bmi}` : ''}
+          </p>
+        )}
+
+        {appointment.diagnosis && <p className="mb-3"><span className="font-bold">Diagnosis / Assessment:</span> {appointment.diagnosis}</p>}
+
+        {appointment.prescriptions.length > 0 && (
+          <div className="mb-3">
+            <p className="text-lg font-bold mb-1">℞</p>
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b-2 border-black text-left">
+                  <th className="py-1 pr-2">Medicine</th>
+                  <th className="py-1 pr-2">Dosage / Form</th>
+                  <th className="py-1 pr-2">Frequency</th>
+                  <th className="py-1 pr-2">Timing</th>
+                  <th className="py-1 pr-2">Duration</th>
+                  <th className="py-1">Instructions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </Section>
-      )}
+              </thead>
+              <tbody>
+                {appointment.prescriptions.map((p) => (
+                  <tr key={p.id} className="border-b border-black/30">
+                    <td className="py-1 pr-2 font-semibold">{p.medicine}{p.brand_name ? ` (${p.brand_name})` : ''}</td>
+                    <td className="py-1 pr-2">{[p.dosage, p.form].filter(Boolean).join(' ')}</td>
+                    <td className="py-1 pr-2">{p.frequency}</td>
+                    <td className="py-1 pr-2">{p.timing}</td>
+                    <td className="py-1 pr-2">{p.duration}</td>
+                    <td className="py-1">{p.instructions}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-      {appointment.documents.length > 0 && (
-        <Section title="Documents">
-          <ul className="space-y-1.5">
-            {appointment.documents.map((d) => (
-              <li key={d.id}>
-                <a href={`${api.API_BASE_URL}${d.file_path}`} target="_blank" rel="noreferrer"
-                   className="flex items-center gap-2 text-sm text-brand-forest hover:underline">
-                  <FileText className="w-4 h-4" /> {d.original_filename}
-                  <span className="text-slate-400 text-xs">({d.category})</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
+        {appointment.advice && <p className="mb-1"><span className="font-bold">Advice:</span> {appointment.advice}</p>}
+        {appointment.investigations_ordered.length > 0 && (
+          <p className="mb-1"><span className="font-bold">Investigations Ordered:</span> {appointment.investigations_ordered.join(', ')}</p>
+        )}
+        {appointment.follow_up_date && (
+          <p className="mb-1">
+            <span className="font-bold">Follow-up:</span> {formatDate(appointment.follow_up_date)}
+            {appointment.follow_up_instructions ? ` — ${appointment.follow_up_instructions}` : ''}
+          </p>
+        )}
 
-      {(appointment.follow_up_date || appointment.follow_up_instructions || appointment.doctor_notes) && (
-        <Section title="Follow-up">
-          {appointment.follow_up_date && <Info label="Follow-up Date" value={formatDate(appointment.follow_up_date)} />}
-          <Info label="Instructions" value={appointment.follow_up_instructions} block />
-          <Info label="Doctor Notes" value={appointment.doctor_notes} block />
-        </Section>
-      )}
+        <div className="mt-16 flex justify-end">
+          <div className="text-center">
+            <div className="border-t border-black w-56 pt-1">
+              <p className="font-bold">{clinic?.doctor_name || ''}</p>
+              {clinic?.doctor_registration_number && <p className="text-xs">Reg. No: {clinic.doctor_registration_number}</p>}
+              <p className="text-xs mt-1">Doctor's Signature</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
